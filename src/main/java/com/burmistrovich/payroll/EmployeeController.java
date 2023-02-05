@@ -1,8 +1,14 @@
 package com.burmistrovich.payroll;
 
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 @RestController
 public class EmployeeController {
@@ -13,8 +19,16 @@ public class EmployeeController {
     }
 
     @GetMapping("/employees")
-    List<Employee> all() {
-        return repository.findAll();
+    CollectionModel<EntityModel<Employee>> all() {
+        var employees = repository.findAll().stream()
+            .map(employee -> EntityModel.of(employee,
+                linkTo(methodOn(EmployeeController.class).one(employee.getId())).withSelfRel(),
+                linkTo(methodOn(EmployeeController.class).all()).withRel("employees")
+            )).collect(Collectors.toList());
+
+        return CollectionModel.of(employees,
+            linkTo(methodOn(EmployeeController.class).all()).withSelfRel()
+        );
     }
 
     @PostMapping("/employees")
@@ -23,9 +37,13 @@ public class EmployeeController {
     }
 
     @GetMapping("/employees/{id}")
-    Employee one(@PathVariable Long id) {
-        return repository.findById(id)
+    EntityModel<Employee> one(@PathVariable Long id) {
+        Employee employee = repository.findById(id)
             .orElseThrow(() -> new EmployeeNotFoundException(id));
+        return EntityModel.of(employee,
+            linkTo(methodOn(EmployeeController.class).one(id)).withSelfRel(),
+            linkTo(methodOn(EmployeeController.class).all()).withRel("employees")
+        );
     }
 
     @PutMapping("/employees/{id}")
